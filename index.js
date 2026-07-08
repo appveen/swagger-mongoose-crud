@@ -135,11 +135,29 @@ function injectDefaults(schema) {
         if (this._metadata) {
             if (this._metadata.version) this._metadata.version.document++;
             this._metadata.lastUpdated = new Date();
-            // if (this.isNew) {
-            //     this._metadata.createdAt = new Date();
-            // }
         }
         next();
+    });
+    schema.post('save', function (doc) {
+        // Fix Mongoose 8 bug: regenerate subdocument _id with id:undefined after save
+        const visited = new Set();
+        const fixIds = (obj) => {
+            if (!obj || typeof obj !== 'object') return;
+            if (visited.has(obj)) return;
+            visited.add(obj);
+            const keys = Array.isArray(obj) ? obj.map((_, i) => i) : Object.keys(obj);
+            keys.forEach(k => {
+                try {
+                    const v = obj[k];
+                    if (v && v._bsontype === 'ObjectId' && !v.id) {
+                        obj[k] = new mongoose.Types.ObjectId();
+                    } else if (v && typeof v === 'object') {
+                        fixIds(v);
+                    }
+                } catch(e) {}
+            });
+        };
+        if (doc && doc._doc) fixIds(doc._doc);
     });
     schema.pre('update', function (next) {
         if (this._metadata) {
