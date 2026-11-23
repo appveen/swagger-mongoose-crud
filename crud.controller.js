@@ -117,7 +117,7 @@ function removeDocument(doc, req, type) {
                 })
                 .catch(err => resolve(null));
         } else {
-            doc.remove(req)
+            doc.deleteOne(req)
                 .then(() => {
                     resolve(doc.toObject());
                 })
@@ -363,7 +363,7 @@ CrudController.prototype = {
             filter['_metadata.deleted'] = false;
         return this.model
             .find(filter)
-            .count()
+            .countDocuments()
             .exec()
             .then(result => self.Okay(res, result))
             .catch(err => {
@@ -432,10 +432,10 @@ CrudController.prototype = {
                 docs = documents;
                 let promise = Promise.resolve();
                 if (metadata) {
-                    promise = this.model.count(filter)
+                    promise = this.model.countDocuments(filter)
                         .then(_c => {
                             matched = _c;
-                            return this.model.count()
+                            return this.model.countDocuments({})
                         })
                         .then(_t => {
                             totalCount = _t;
@@ -710,42 +710,35 @@ CrudController.prototype = {
     },
     _updateMapper: function (id, body, user, req) {
         var self = this;
-        return new Promise((resolve, reject) => {
-            self.model.findOne({
-                '_id': id,
-                '_metadata.deleted': false
-            }, function (err, doc) {
-                if (err) {
-                    resolve({ status: 400, data: { message: err.message } });
-                } else if (!doc) {
-                    resolve({ status: 404, data: { message: 'Document not found' } });
-                } else {
-                    var oldValues = doc.toObject();
-                    var updated = _.mergeWith(doc, body, self._customizer);
-                    if (_.isEqual(JSON.parse(JSON.stringify(oldValues)), JSON.parse(JSON.stringify(updated)))) {
-                        resolve({ status: 200, data: updated });
-                        return;
-                    }
-                    updated = new self.model(updated);
-                    Object.keys(body).forEach(el => updated.markModified(el));
-                    updated._oldDoc = JSON.parse(JSON.stringify(oldValues));
-                    updated.save(req, function (err) {
-                        if (err) {
-                            return resolve({ status: 400, data: { message: err.message } });
-                        }
-                        var logObject = {
-                            'operation': 'Update',
-                            'user': user,
-                            'originalValues': oldValues,
-                            '_id': doc._id,
-                            'newValues': body,
-                            'timestamp': new Date()
-                        };
-                        self.logger.trace(JSON.stringify(logObject));
-                        resolve({ status: 200, data: updated });
-                    });
-                }
+        return self.model.findOne({
+            '_id': id,
+            '_metadata.deleted': false
+        }).exec().then(function (doc) {
+            if (!doc) {
+                return { status: 404, data: { message: 'Document not found' } };
+            }
+            var oldValues = doc.toObject();
+            var updated = _.mergeWith(doc, body, self._customizer);
+            if (_.isEqual(JSON.parse(JSON.stringify(oldValues)), JSON.parse(JSON.stringify(updated)))) {
+                return { status: 200, data: updated };
+            }
+            updated = new self.model(updated);
+            Object.keys(body).forEach(el => updated.markModified(el));
+            updated._oldDoc = JSON.parse(JSON.stringify(oldValues));
+            return updated.save(req).then(function () {
+                var logObject = {
+                    'operation': 'Update',
+                    'user': user,
+                    'originalValues': oldValues,
+                    '_id': doc._id,
+                    'newValues': body,
+                    'timestamp': new Date()
+                };
+                self.logger.trace(JSON.stringify(logObject));
+                return { status: 200, data: updated };
             });
+        }).catch(function (err) {
+            return { status: 400, data: { message: err.message } };
         });
     },
     _bulkUpdate: function (req, res) {
@@ -797,15 +790,8 @@ CrudController.prototype = {
         }
     },
     _bulkPersist: function (el) {
-        var self = this;
-        return new Promise((res, rej) => {
-            self.model.create(el, function (err, doc) {
-                if (err)
-                    res(err);
-                else
-                    res(doc);
-            });
-        });
+        // resolves with the created document, or with the error (as before)
+        return this.model.create(el).then(doc => doc, err => err);
     },
     /**
      * Updates an existing document in the DB. The requested document id is read from the
@@ -895,7 +881,7 @@ CrudController.prototype = {
                     return;
                 }
                 document = doc;
-                return doc.remove(req);
+                return doc.deleteOne(req);
             })
             .then(() => {
                 var logObject = {
