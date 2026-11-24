@@ -3,6 +3,13 @@
   "version": "2.1.0",
   "description": "Swagger Mongoose crud wrapper",
   "main": "index.js",
+  "files": [
+    "index.js",
+    "base.controller.js",
+    "crud.controller.js",
+    "param.controller.js",
+    "swagger.params.map.js"
+  ],
   "scripts": {
     "test": "mocha test",
     "test:db": "node --test db-test/crud.test.js"
