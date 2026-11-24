@@ -131,7 +131,7 @@ function injectDefaults(schema) {
     schema.index({
         '_metadata.deleted': 1
     });
-    schema.pre('save', function (next) {
+    schema.pre('save', async function () {
         if (this._metadata) {
             if (this._metadata.version) this._metadata.version.document++;
             this._metadata.lastUpdated = new Date();
@@ -139,9 +139,8 @@ function injectDefaults(schema) {
             //     this._metadata.createdAt = new Date();
             // }
         }
-        next();
     });
-    schema.pre('update', function (next) {
+    schema.pre('update', async function () {
         if (this._metadata) {
             if (this._metadata.version) this._metadata.version.document++;
             this._metadata.lastUpdated = new Date();
@@ -149,7 +148,6 @@ function injectDefaults(schema) {
             //     this._metadata.createdAt = new Date();
             // }
         }
-        next();
     });
     return schema;
 }

@@ -4,7 +4,8 @@
   "description": "Swagger Mongoose crud wrapper",
   "main": "index.js",
   "scripts": {
-    "test": "mocha test"
+    "test": "mocha test",
+    "test:db": "node --test db-test/crud.test.js"
   },
   "keywords": [
     "mongoose",
@@ -19,6 +20,10 @@
     "log4js": "^6.6.1"
   },
   "devDependencies": {
-    "chai": "^4.1.2"
+    "chai": "^4.1.2",
+    "mongoose": "~9.13.0"
+  },
+  "peerDependencies": {
+    "mongoose": ">=6.5.1"
   }
 }
